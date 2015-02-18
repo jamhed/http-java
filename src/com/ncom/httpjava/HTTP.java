@@ -25,19 +25,19 @@ class HTTP {
 
 	int socketTimeout;
 	int requestTimeout;
-	
+
 	BasicHttpContext localContext;
-		
+
 	HTTP(int socketTimeout, int requestTimeout) {
 		this.socketTimeout = socketTimeout;
 		this.requestTimeout = requestTimeout;
 		localContext = new BasicHttpContext();
 	}
-		
+
 	HTTP() {
 		this(5000, 25000);
 	}
-	
+
 	static void Log(String s) {
 		Log.d("HTTP", s);
 	}
@@ -45,90 +45,90 @@ class HTTP {
 	public interface Callback {
 		void apply(String res);
 	}
-	
+
 	class Param {
 		Callback callback;
 		String result;
-		
+
 		Param(Callback callback, String result) {
 			this.callback = callback;
 			this.result = result;
 		}
 	}
-	
+
 	static Handler cbHandler = new Handler() {
 		@Override
 		public void handleMessage(Message m) {
-            Param r = (Param) m.obj;
-            Log("RES: " + r.result);
-            r.callback.apply(r.result);
-        }
+			Param r = (Param) m.obj;
+			Log("RES: " + r.result);
+			r.callback.apply(r.result);
+		}
 	};
 
-    class TimeOutTask extends TimerTask {   
+	class TimeOutTask extends TimerTask {   
 		String url;
 		Thread t;
-		
+
 		TimeOutTask(Thread t, String url) {
-        	this.t = t;
-        	this.url = url;
-        }
-		
-        public void run() {
-            if (t.isAlive()) {
-                t.interrupt();
-            }
-        }
-    }
-    
-    String convertInputStreamToString(InputStream inputStream) {
-        StringBuilder builder = new StringBuilder();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-        
-        String line = "";
-        try {
+			this.t = t;
+			this.url = url;
+		}
+
+		public void run() {
+			if (t.isAlive()) {
+				t.interrupt();
+			}
+		}
+	}
+
+	String convertInputStreamToString(InputStream inputStream) {
+		StringBuilder builder = new StringBuilder();
+		BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+
+		String line = "";
+		try {
 			while( (line = reader.readLine()) != null) {
 				builder.append(line);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-        return builder.toString();
-    }
+		return builder.toString();
+	}
 
-    void Post(final String url, final String body, final Callback callback) {
-        Log("REQ: " + url);
-        
-        Thread r = new Thread() {
-            
-        	@Override
-            public void run() {
-            
-                HttpClient client = new DefaultHttpClient();
-                HttpParams param = client.getParams();
+	void Post(final String url, final String body, final Callback callback) {
+		Log("REQ: " + url);
 
-                HttpConnectionParams.setConnectionTimeout(param, socketTimeout);
-                HttpConnectionParams.setSoTimeout(param, socketTimeout);
+		Thread r = new Thread() {
 
-                HttpPost req = new HttpPost(url);
+			@Override
+			public void run() {
 
-                String result = "";
+				HttpClient client = new DefaultHttpClient();
+				HttpParams param = client.getParams();
+
+				HttpConnectionParams.setConnectionTimeout(param, socketTimeout);
+				HttpConnectionParams.setSoTimeout(param, socketTimeout);
+
+				HttpPost req = new HttpPost(url);
+
+				String result = "";
 				if (body.length() > 0) {
-                    try {
+					try {
 						req.setEntity(new StringEntity(body));
-		                InputStream inputStream = client.execute(req, new BasicHttpContext()).getEntity().getContent();
-		                result  = convertInputStreamToString(inputStream);
-		                req.setHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
-                    } catch (Exception e) {
+						InputStream inputStream = client.execute(req, new BasicHttpContext()).getEntity().getContent();
+						result  = convertInputStreamToString(inputStream);
+						req.setHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+					} catch (Exception e) {
 						e.printStackTrace();
 					}
-                    
-                }
-                cbHandler.obtainMessage(MSG_DONE, new Param(callback, result)).sendToTarget();
-            }
-        };
 
-        new Timer(true).schedule(new TimeOutTask(r, url), requestTimeout);
-        r.start();
-    }
+				}
+				cbHandler.obtainMessage(MSG_DONE, new Param(callback, result)).sendToTarget();
+			}
+		};
+
+		new Timer(true).schedule(new TimeOutTask(r, url), requestTimeout);
+		r.start();
+	}
 }
